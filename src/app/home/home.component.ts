@@ -2,9 +2,8 @@ import {Component, OnInit} from '@angular/core';
 import {Course, sortCoursesBySeqNo} from '../model/course';
 import {interval, noop, Observable, of, throwError, timer} from 'rxjs';
 import {catchError, delay, delayWhen, filter, finalize, map, retryWhen, shareReplay, tap} from 'rxjs/operators';
-import {HttpClient} from '@angular/common/http';
-import {MatDialog, MatDialogConfig} from '@angular/material/dialog';
-import {CourseDialogComponent} from '../course-dialog/course-dialog.component';
+import {CourseServices} from "../services/courses.services";
+import {LoadingService} from "../loading/loading.service";
 
 
 @Component({
@@ -14,45 +13,41 @@ import {CourseDialogComponent} from '../course-dialog/course-dialog.component';
 })
 export class HomeComponent implements OnInit {
 
-  beginnerCourses: Course[];
+  beginnerCourses$: Observable<Course[]>;
 
-  advancedCourses: Course[];
+  advancedCourses$: Observable<Course[]>;
 
 
-  constructor(private http: HttpClient, private dialog: MatDialog) {
+  constructor(private courseServices:CourseServices, private loadingService:LoadingService) {
 
   }
 
   ngOnInit() {
 
-    this.http.get('/api/courses')
-      .subscribe(
-        res => {
-
-          const courses: Course[] = res["payload"].sort(sortCoursesBySeqNo);
-
-          this.beginnerCourses = courses.filter(course => course.category == "BEGINNER");
-
-          this.advancedCourses = courses.filter(course => course.category == "ADVANCED");
-
-        });
-
+    this.reloadCourses();
   }
 
-  editCourse(course: Course) {
 
-    const dialogConfig = new MatDialogConfig();
+   reloadCourses() {
 
-    dialogConfig.disableClose = true;
-    dialogConfig.autoFocus = true;
-    dialogConfig.width = "400px";
 
-    dialogConfig.data = course;
+    const courses$ = this.courseServices.loadAllCourses()
+      .pipe(
+        map(courses => courses.sort(sortCoursesBySeqNo))
+      );
 
-    const dialogRef = this.dialog.open(CourseDialogComponent, dialogConfig);
+    const loadCourses$ = this.loadingService.showLoaderUntilCompleted(courses$);
 
+    courses$.subscribe(value => console.log(value));
+
+    this.beginnerCourses$ = courses$.pipe(
+      map(courses => courses.filter(courses => courses.category == "BEGINNER"))
+    );
+
+    this.advancedCourses$ = courses$.pipe(
+      map(courses => courses.filter(courses => courses.category == "ADVANCED"))
+    );
   }
-
 }
 
 
